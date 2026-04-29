@@ -1,0 +1,23 @@
+###############################################################################
+# product-service Kustomize base
+#
+# base는 환경 무관 공통 정의의 모음.
+# overlays/<env>는 이 base를 참조하여 환경별 차이만 patch.
+###############################################################################
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+# 이 base에 포함될 자원 목록
+resources:
+  - deployment.yaml
+  - service.yaml
+
+# 모든 자원에 자동 부착될 공통 라벨
+# (kustomize v5는 labels.includeSelectors 옵션으로 selector도 함께 갱신 가능)
+labels:
+  - includeSelectors: false
+    pairs:
+      app.kubernetes.io/name: product-service
+      app.kubernetes.io/part-of: portfolio
+      app.kubernetes.io/managed-by: kustomize

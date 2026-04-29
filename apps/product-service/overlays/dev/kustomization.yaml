@@ -1,0 +1,31 @@
+###############################################################################
+# product-service Kustomize overlay: dev 환경
+#
+# base를 참조하면서 dev 환경의 차이만 patch:
+#   - replicas 2 (HA 시연용)
+#   - 모든 자원에 environment=dev 라벨 추가
+#
+# 운영 시 적용 명령:
+#   kubectl apply -k apps/product-service/overlays/dev
+###############################################################################
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: default
+
+resources:
+  - ../../base
+
+# dev 환경 식별 라벨
+labels:
+  - includeSelectors: false
+    pairs:
+      environment: dev
+
+# 환경별 차이 patch
+patches:
+  - path: replica-patch.yaml
+    target:
+      kind: Deployment
+      name: product-service

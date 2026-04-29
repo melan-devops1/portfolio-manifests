@@ -1,0 +1,27 @@
+###############################################################################
+# product-service Service (base)
+#
+# ClusterIP 타입 — 클러스터 내부에서만 접근 가능.
+# 외부 노출은 Phase 4의 Ingress (ALB Controller)에서 담당.
+# 마이크로서비스 간 호출(order → product 등)은 이 Service의 DNS 이름 사용:
+#   http://product-service.default.svc.cluster.local:8081
+#   또는 같은 namespace 내에선 단순히:
+#   http://product-service:8081
+###############################################################################
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  labels:
+    app: product-service
+spec:
+  type: ClusterIP
+  selector:
+    # Deployment의 spec.template.metadata.labels와 정합
+    app: product-service
+  ports:
+    - name: http
+      port: 8081           # Service의 외부 포트 (다른 Pod에서 호출하는 포트)
+      targetPort: http     # Pod의 containerPort 이름 참조 (= 8081)
+      protocol: TCP

@@ -1,0 +1,13 @@
+###############################################################################
+# Strategic Merge Patch — Deployment의 replicas만 2로 변경
+#
+# Kustomize는 이 patch를 base의 deployment.yaml과 merge.
+# kind/name이 일치하는 자원에만 적용 (kustomization.yaml의 patches.target에서 지정).
+###############################################################################
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+spec:
+  replicas: 2
