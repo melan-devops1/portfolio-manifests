@@ -12,6 +12,7 @@ kind: Kustomization
 resources:
   - deployment.yaml
   - service.yaml
+  - hpa.yaml
 
 # 모든 자원에 자동 부착될 공통 라벨
 # (kustomize v5는 labels.includeSelectors 옵션으로 selector도 함께 갱신 가능)

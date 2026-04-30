@@ -1,14 +1,14 @@
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 
+namespace: default
+
 resources:
-  - deployment.yaml
-  - service.yaml
-  - hpa.yaml
+  - ingress.yaml
 
 labels:
   - includeSelectors: false
     pairs:
-      app.kubernetes.io/name: payment-service
       app.kubernetes.io/part-of: portfolio
+      app.kubernetes.io/component: ingress
       app.kubernetes.io/managed-by: kustomize
