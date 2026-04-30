@@ -35,7 +35,7 @@ spec:
       terminationGracePeriodSeconds: 35
       containers:
         - name: payment-service
-          image: 601766312629.dkr.ecr.ap-northeast-2.amazonaws.com/portfolio/payment-service:0.1.0
+          image: portfolio/payment-service    # abstract — kustomization images 매핑
           imagePullPolicy: IfNotPresent
 
           ports:

@@ -36,8 +36,8 @@ spec:
     spec:
       terminationGracePeriodSeconds: 35
       containers:
-        - name: order-service
-          image: 601766312629.dkr.ecr.ap-northeast-2.amazonaws.com/portfolio/order-service:0.1.0
+        - name: order-service          
+          image: portfolio/order-service    # abstract — kustomization images 매핑
           imagePullPolicy: IfNotPresent
 
           ports:

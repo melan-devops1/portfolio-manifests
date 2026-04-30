@@ -1,0 +1,66 @@
+###############################################################################
+# ArgoCD Application — portfolio-manifests의 dev overlay 전체 watch
+#
+# 결정:
+# - watch 대상: apps/all/overlays/dev (모든 서비스 한 번에)
+# - sync 정책: Auto + Self-heal (진짜 GitOps)
+# - prune: true (Git에서 삭제된 자원도 cluster에서 제거)
+#
+# 진짜 GitOps 의미:
+# 1. Git이 진실의 소스 (Single Source of Truth)
+# 2. kubectl로 직접 변경하면 ArgoCD가 자동 복구 (selfHeal)
+# 3. PR 머지 시점에 자동 배포 (prune으로 stale 자원 정리)
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: portfolio-app
+  namespace: argocd
+  # ArgoCD가 자기 자신의 Application을 cleanup 시 정상 처리
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+
+spec:
+  project: default
+
+  # ─── Source: portfolio-manifests Git 레포 ─────────────────────
+  source:
+    repoURL: https://github.com/melan-devops1/portfolio-manifests.git
+    targetRevision: main
+    path: apps/all/overlays/dev
+    # Kustomize는 ArgoCD 내장 지원 (path에 kustomization.yaml 있으면 자동 인식)
+
+  # ─── Destination: 같은 클러스터 default namespace ─────────────
+  destination:
+    server: https://kubernetes.default.svc   # in-cluster 표준
+    namespace: default
+
+  # ─── Sync 정책: Auto + Self-heal (진짜 GitOps) ───────────────
+  syncPolicy:
+    automated:
+      prune: true       # Git에서 삭제된 자원은 cluster에서도 삭제
+      selfHeal: true    # kubectl로 직접 변경된 자원은 Git 상태로 복구
+
+    syncOptions:
+      - CreateNamespace=false   # default 네임스페이스라 생성 불필요
+      - ApplyOutOfSyncOnly=true  # 변경된 자원만 apply (효율)
+      - PrunePropagationPolicy=foreground   # Pod 정리 후 다음 단계
+      - PruneLast=true           # prune은 다른 자원 적용 후 마지막에
+
+    # 재시도 정책 (sync 실패 시)
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # ─── 무시할 차이점 (selfHeal이 잘못 트리거되는 케이스 방지) ─
+  ignoreDifferences:
+    # HPA가 자동 갱신하는 replicas는 Git의 deployment.replicas와 항상 다름
+    # 이걸 selfHeal하면 HPA와 무한 충돌 → 무시
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

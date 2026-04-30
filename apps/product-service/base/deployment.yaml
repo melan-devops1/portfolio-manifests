@@ -42,7 +42,7 @@ spec:
       terminationGracePeriodSeconds: 35
       containers:
         - name: product-service
-          image: 601766312629.dkr.ecr.ap-northeast-2.amazonaws.com/portfolio/product-service:0.1.0
+          image: portfolio/product-service    # abstract — kustomization images 매핑
           imagePullPolicy: IfNotPresent
 
           ports:

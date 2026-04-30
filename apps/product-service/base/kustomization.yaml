@@ -14,6 +14,12 @@ resources:
   - service.yaml
   - hpa.yaml
 
+# Image 자동 갱신 대상 (GitHub Actions가 newTag를 commit-sha로 update)
+images:
+  - name: portfolio/product-service
+    newName: 601766312629.dkr.ecr.ap-northeast-2.amazonaws.com/portfolio/product-service
+    newTag: "0.1.0"   # GitHub Actions가 매 push마다 commit-sha로 갱신
+
 # 모든 자원에 자동 부착될 공통 라벨
 # (kustomize v5는 labels.includeSelectors 옵션으로 selector도 함께 갱신 가능)
 labels:

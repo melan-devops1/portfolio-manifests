@@ -1,0 +1,59 @@
+###############################################################################
+# ArgoCD UI Ingress — 별도 ALB
+#
+# 결정:
+# - 별도 ALB (앱용 portfolio-ingress와 분리)
+# - group.name=argocd로 다른 ALB 인스턴스 강제
+# - Path / 단일 (path-based 분기 불필요)
+# - HTTP only (시연 단계, Phase 5+에 ACM + HTTPS)
+#
+# 설치 순서 의존성:
+# 1. ArgoCD가 먼저 설치되어 argocd-server Service가 존재해야 함
+# 2. AWS Load Balancer Controller가 동작 중이어야 함 (Phase 3.4.6 박제)
+###############################################################################
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-ingress
+  namespace: argocd
+  annotations:
+    # 별도 ALB — 앱용 portfolio와 분리
+    alb.ingress.kubernetes.io/group.name: argocd
+
+    # ALB scheme — 인터넷에서 접근 가능 (시연용)
+    alb.ingress.kubernetes.io/scheme: internet-facing
+
+    # Target type — IP 모드 (Pod 직접 라우팅, kube-proxy hop 단축)
+    alb.ingress.kubernetes.io/target-type: ip
+
+    # Listen port — HTTP only (시연 단계)
+    # Phase 5+에서 ACM 인증서 + HTTPS 추가
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+
+    # Backend protocol — ArgoCD가 server.insecure=true라 HTTP
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+
+    # Health check — ArgoCD server는 /healthz 엔드포인트 제공
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
+
+    # 태그 — 비용 추적
+    alb.ingress.kubernetes.io/tags: Environment=dev,Project=portfolio,Component=argocd
+
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80   # ClusterIP service의 80 포트 → Pod의 8080

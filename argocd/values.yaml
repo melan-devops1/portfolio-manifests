@@ -1,0 +1,75 @@
+###############################################################################
+# ArgoCD Helm Chart Values
+#
+# Chart: argo/argo-cd v9.5.0
+# ArgoCD: v3.3.6
+# 검증 환경: EKS 1.33 (2026-04 기준)
+#
+# 핵심 설정 결정:
+# 1. server.insecure: ALB가 TLS termination, ArgoCD는 HTTP backend로 동작
+#    (--insecure gotcha — 미설정 시 ALB ↔ ArgoCD redirect loop)
+# 2. service: ClusterIP (Ingress가 ALB로 노출)
+# 3. dex.enabled: false (외부 OIDC 미사용, Phase 5+ 검토)
+# 4. notifications.enabled: false (Phase 5+ Slack 알림 도입 시 활성화)
+###############################################################################
+
+global:
+  # Pod Security 표준 (ADR 박제 가치)
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 999
+
+# ─── ArgoCD Server (UI + API) ──────────────────────────────────
+server:
+  # ALB가 TLS termination, ArgoCD는 HTTP backend
+  # 미설정 시 ArgoCD가 redirect loop 일으킴 (--insecure gotcha)
+  extraArgs:
+    - --insecure
+
+  service:
+    type: ClusterIP   # Ingress(ALB)가 외부 노출 담당
+
+  # ArgoCD UI 자체엔 readiness/liveness probe 자동 설정됨
+  # Pod 부팅 ~30초
+
+# ─── Application Controller (sync 엔진) ────────────────────────
+controller:
+  # 단일 controller (sharded는 운영 단계에서)
+  replicas: 1
+
+# ─── Repo Server (Git 동기화) ──────────────────────────────────
+repoServer:
+  replicas: 1
+
+# ─── Redis (캐시) ──────────────────────────────────────────────
+redis:
+  enabled: true
+
+# ─── Dex (외부 OIDC 인증) ──────────────────────────────────────
+# 비활성화 — local admin 계정만 사용
+# Phase 5+에서 GitHub OAuth 연동 검토
+dex:
+  enabled: false
+
+# ─── ApplicationSet ────────────────────────────────────────────
+# 멀티 환경/멀티 클러스터 자동 생성기
+# 1인 dev 환경엔 불필요, 미사용
+applicationSet:
+  enabled: false
+
+# ─── Notifications ─────────────────────────────────────────────
+# 비활성화 — Phase 5+ Slack 알림 도입 시 활성화
+notifications:
+  enabled: false
+
+# ─── ArgoCD configs ────────────────────────────────────────────
+configs:
+  # 추가 파라미터 (ConfigMap argocd-cmd-params-cm)
+  params:
+    # server.insecure는 extraArgs로 이미 설정됨
+    # 여기엔 추가 운영 파라미터
+    server.disable.auth: "false"   # admin 인증 활성화 (default)
+
+  # CMP(Config Management Plugin) 미사용 — Kustomize는 기본 지원
+  cmp:
+    create: false
