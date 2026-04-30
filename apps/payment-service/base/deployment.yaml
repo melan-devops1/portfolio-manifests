@@ -1,0 +1,104 @@
+###############################################################################
+# payment-service Deployment (base)
+#
+# 의도적 Chaos 시뮬레이션 포함 (ADR-0007).
+# Phase 3에선 환경변수만 박고 OFF (CHAOS_ENABLED=false).
+# Phase 4 진입 시 ON으로 전환:
+#   - Prometheus + Alertmanager 도입 후
+#   - "에러율 5% 임계치 알림" 시연용으로 켬
+#
+# Phase 3 임시: SPRING_PROFILES_ACTIVE=local (H2 in-memory)
+# Phase 4에서 k8s 프로파일 + RDS로 전환 예정
+###############################################################################
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      terminationGracePeriodSeconds: 35
+      containers:
+        - name: payment-service
+          image: 601766312629.dkr.ecr.ap-northeast-2.amazonaws.com/portfolio/payment-service:0.1.0
+          imagePullPolicy: IfNotPresent
+
+          ports:
+            - name: http
+              containerPort: 8083
+              protocol: TCP
+
+          env:
+            - name: SPRING_PROFILES_ACTIVE
+              value: "local"
+            - name: SERVER_PORT
+              value: "8083"
+            # Chaos 시뮬레이션 — Phase 3는 OFF, Phase 4 진입 시 ON 전환
+            - name: CHAOS_ENABLED
+              value: "false"
+            - name: CHAOS_ERROR_RATE
+              value: "5"
+            - name: CHAOS_MIN_DELAY
+              value: "100"
+            - name: CHAOS_MAX_DELAY
+              value: "2000"
+
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+
+          livenessProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 40
+            periodSeconds: 10
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          readinessProbe:
+            httpGet:
+              path: /actuator/health/readiness
+              port: http
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 3
+
+          startupProbe:
+            httpGet:
+              path: /actuator/health/liveness
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            timeoutSeconds: 3
+            failureThreshold: 30
+
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1001
+            runAsGroup: 1001
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: false
+            capabilities:
+              drop:
+                - ALL

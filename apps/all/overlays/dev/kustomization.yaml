@@ -1,0 +1,19 @@
+###############################################################################
+# 모든 서비스 동시 배포용 통합 overlay
+#
+# 단일 명령으로 3개 서비스를 한 번에 배포/제거:
+#   kubectl apply -k apps/all/overlays/dev
+#   kubectl delete -k apps/all/overlays/dev
+#
+# 각 서비스의 overlays/dev를 그대로 참조하므로 개별 서비스의 patch는 그대로 적용됨.
+###############################################################################
+
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: default
+
+resources:
+  - ../../../product-service/overlays/dev
+  - ../../../order-service/overlays/dev
+  - ../../../payment-service/overlays/dev

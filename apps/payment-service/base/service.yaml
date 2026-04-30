@@ -1,0 +1,19 @@
+###############################################################################
+# payment-service Service (ClusterIP)
+###############################################################################
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  labels:
+    app: payment-service
+spec:
+  type: ClusterIP
+  selector:
+    app: payment-service
+  ports:
+    - name: http
+      port: 8083
+      targetPort: http
+      protocol: TCP
