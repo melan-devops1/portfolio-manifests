@@ -18,7 +18,7 @@ resources:
 images:
 - name: portfolio/product-service
   newName: 601766312629.dkr.ecr.ap-northeast-2.amazonaws.com/portfolio/product-service
-  newTag: 2e1c930
+  newTag: cbe4cc7
 
 # 모든 자원에 자동 부착될 공통 라벨
 # (kustomize v5는 labels.includeSelectors 옵션으로 selector도 함께 갱신 가능)
