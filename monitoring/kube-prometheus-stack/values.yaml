@@ -1,0 +1,164 @@
+###############################################################################
+# kube-prometheus-stack Helm Values
+#
+# Chart: prometheus-community/kube-prometheus-stack v84.3.0
+# 검증 환경: EKS 1.33 (2026-04 기준)
+#
+# 구성 요소 (한 번 설치로 다 깔림):
+#   - Prometheus Operator (CRD 관리)
+#   - Prometheus (메트릭 저장소, TSDB)
+#   - Alertmanager (알림 라우팅)
+#   - Grafana (대시보드)
+#   - kube-state-metrics (K8s 객체 메트릭)
+#   - prometheus-node-exporter (DaemonSet, 노드 메트릭)
+#
+# 핵심 결정:
+# 1. EKS managed control plane scraper 비활성화 (false alert 방지)
+# 2. gp3 StorageClass + PVC 사이즈 적정화 (1인 dev)
+# 3. Grafana ALB Ingress (별도 manifest로 분리, grafana-ingress.yaml)
+# 4. ServiceMonitor selector 비활성화 (모든 namespace의 SM 자동 감지)
+###############################################################################
+
+# ─── 1. EKS managed control plane scraper 비활성화 ─────────────
+# AWS가 etcd, kube-controller-manager, kube-scheduler를 자체 인프라에서 운영
+# metrics 엔드포인트 노출 안 함 → 활성화 시 false alert + noisy 로그
+kubeControllerManager:
+  enabled: false
+kubeScheduler:
+  enabled: false
+kubeEtcd:
+  enabled: false
+
+kubeProxy:
+  enabled: true
+
+# ─── 2. Prometheus 본체 ──────────────────────────────────────
+prometheus:
+  prometheusSpec:
+    # PVC (TSDB 저장)
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 10Gi
+
+    # 데이터 보관 기간
+    retention: 15d
+    retentionSize: "9GB"
+
+    # ServiceMonitor 자동 감지 (모든 namespace)
+    # 핵심 — portfolio 앱 namespace의 ServiceMonitor도 자동 감지
+    serviceMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelector: {}
+    serviceMonitorNamespaceSelector: {}
+
+    # PodMonitor도 동일
+    podMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelector: {}
+    podMonitorNamespaceSelector: {}
+
+    # PrometheusRule도 동일 (CRD로 알림 규칙 추가)
+    ruleSelectorNilUsesHelmValues: false
+    ruleSelector: {}
+    ruleNamespaceSelector: {}
+
+    # 자원 (1인 dev 환경)
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "1Gi"
+      limits:
+        cpu: "1000m"
+        memory: "2Gi"
+
+# ─── 3. Alertmanager ─────────────────────────────────────────
+alertmanager:
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: gp3
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+# ─── 4. Grafana ──────────────────────────────────────────────
+grafana:
+  enabled: true
+
+  # 시연 단계 admin 비밀번호
+  # ⚠️ Phase 5+ 운영 환경 전환 시 외부 OIDC (GitHub OAuth 등)로 변경
+  adminPassword: "ChangeMeImmediately!"
+
+  persistence:
+    enabled: true
+    storageClassName: gp3
+    size: 5Gi
+
+  # ServiceMonitor 자동 감지 (Grafana 자체도 메트릭 노출)
+  serviceMonitor:
+    enabled: true
+
+  # Grafana Service는 ClusterIP (Ingress가 별도 ALB로 노출)
+  service:
+    type: ClusterIP
+
+  # 자원
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "256Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+  # 기본 대시보드 활성화 (kube-prometheus-stack이 34개 자동 임포트)
+  defaultDashboardsEnabled: true
+  defaultDashboardsTimezone: Asia/Seoul
+
+  # 추가 데이터소스 자동 등록 (이미 Prometheus는 자동)
+  # Loki는 Phase 4 Epic 8 도입 시 추가 예정
+
+# ─── 5. kube-state-metrics ───────────────────────────────────
+kubeStateMetrics:
+  enabled: true
+
+# ─── 6. node-exporter (DaemonSet) ────────────────────────────
+nodeExporter:
+  enabled: true
+
+# ─── 7. Prometheus Operator ──────────────────────────────────
+prometheusOperator:
+  enabled: true
+
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "128Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+
+  # admissionWebhooks: Prometheus rule validation (default 활성화)
+  # EKS에서 self-signed cert 자동 처리됨
+
+# ─── 8. CRD 관리 ──────────────────────────────────────────────
+# ArgoCD가 Helm chart의 CRD도 함께 관리하도록 (default behavior)
+# CRD: ServiceMonitor, PrometheusRule, AlertmanagerConfig 등
+
+# ─── 9. global ───────────────────────────────────────────────
+global:
+  rbac:
+    create: true

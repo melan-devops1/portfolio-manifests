@@ -1,0 +1,88 @@
+###############################################################################
+# ArgoCD Application — kube-prometheus-stack
+#
+# 결정 사항:
+# - Source: Helm chart 직접 (prometheus-community 공식 repo)
+# - values.yaml: Git 레포의 monitoring/kube-prometheus-stack/values.yaml
+# - Sync 정책: Auto + Self-heal (ADR-0021 정합)
+# - ignoreDifferences: 자동 갱신되는 fields 제외
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+
+spec:
+  project: default
+
+  # ─── Source: Helm chart 직접 ──────────────────────────────────
+  # Helm repo + 우리 git의 values.yaml 결합
+  sources:
+    # Helm chart 본체
+    - repoURL: https://prometheus-community.github.io/helm-charts
+      chart: kube-prometheus-stack
+      targetRevision: 84.3.0
+      helm:
+        # values.yaml 참조 (sources의 다른 source의 파일)
+        valueFiles:
+          - $values/monitoring/kube-prometheus-stack/values.yaml
+        skipCrds: false   # CRD 함께 설치 (ServiceMonitor 등)
+
+    # values.yaml이 있는 Git 레포
+    - repoURL: https://github.com/melan-devops1/portfolio-manifests.git
+      targetRevision: main
+      ref: values
+
+  # ─── Destination: monitoring namespace ────────────────────────
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+
+  # ─── Sync 정책 (ADR-0021 패턴 일관성) ────────────────────────
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true       # monitoring namespace 자동 생성
+      - ServerSideApply=true        # CRD 큰 자원 처리 안정성
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # ─── ignoreDifferences ────────────────────────────────────────
+  # Helm chart이 자동 갱신하는 필드들 — selfHeal 충돌 방지
+  ignoreDifferences:
+    # CRD가 자동 갱신하는 status
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jsonPointers:
+        - /status
+
+    # admissionWebhook의 caBundle (Operator가 자동 주입)
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+      jsonPointers:
+        - /webhooks/0/clientConfig/caBundle
+
+    # Deployment.replicas (HPA 충돌 방지 — ADR-0021 일관성)
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

@@ -1,0 +1,37 @@
+###############################################################################
+# ServiceMonitor — payment-service
+#
+# Chaos가 ON 상태로 배포됨 (CHAOS_ENABLED=true).
+# 5% 에러율을 Prometheus가 수집 → Alertmanager 알림 시연 자료.
+###############################################################################
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: payment-service
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack
+
+spec:
+  selector:
+    matchLabels:
+      app: payment-service
+
+  namespaceSelector:
+    matchNames:
+      - default
+
+  endpoints:
+    - port: http
+      path: /actuator/prometheus
+      interval: 15s
+      scrapeTimeout: 10s
+
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace

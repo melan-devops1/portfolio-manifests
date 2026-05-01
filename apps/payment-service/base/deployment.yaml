@@ -50,7 +50,7 @@ spec:
               value: "8083"
             # Chaos 시뮬레이션 — Phase 3는 OFF, Phase 4 진입 시 ON 전환
             - name: CHAOS_ENABLED
-              value: "false"
+              value: "true"
             - name: CHAOS_ERROR_RATE
               value: "5"
             - name: CHAOS_MIN_DELAY

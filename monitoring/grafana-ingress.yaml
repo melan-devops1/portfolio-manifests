@@ -1,0 +1,53 @@
+###############################################################################
+# Grafana UI Ingress — 별도 ALB
+#
+# 결정 (ADR-0021의 ArgoCD ALB 패턴 일관성):
+# - 별도 ALB (group.name=grafana)
+# - HTTP only (시연 단계, Phase 5+에 ACM + HTTPS)
+# - Path / 단일
+#
+# ⚠️ 주의: kube-prometheus-stack이 grafana namespace에 Service를 생성.
+#         Service 이름은 helm release name 기반 — 보통 'kube-prometheus-stack-grafana'
+#         또는 '<release-name>-grafana'. 설치 후 실제 이름 확인 필수.
+###############################################################################
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: grafana-ingress
+  namespace: monitoring
+  annotations:
+    # 별도 ALB
+    alb.ingress.kubernetes.io/group.name: grafana
+
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+
+    # Health check — Grafana는 /api/health 엔드포인트 제공
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /api/health
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
+
+    # 태그
+    alb.ingress.kubernetes.io/tags: Environment=dev,Project=portfolio,Component=grafana
+
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                # Helm release name이 'kube-prometheus-stack'인 경우의 Service 이름
+                # 다르면 kubectl get svc -n monitoring로 확인 후 수정
+                name: kube-prometheus-stack-grafana
+                port:
+                  number: 80

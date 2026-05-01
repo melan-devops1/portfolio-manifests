@@ -1,0 +1,48 @@
+###############################################################################
+# ServiceMonitor — product-service
+#
+# Prometheus Operator의 CRD. Prometheus가 이걸 보고 자동으로 scrape 대상 등록.
+# kube-prometheus-stack values.yaml의 serviceMonitorSelector: {} 로 자동 감지.
+#
+# 매칭 흐름:
+# 1. ServiceMonitor의 selector.matchLabels로 Service 찾음
+# 2. 그 Service의 endpoints의 Pod에서 메트릭 수집
+# 3. endpoints의 port 이름이 ServiceMonitor의 endpoints.port와 일치해야 함
+#
+# 주의: portfolio-app의 Service는 default namespace에 있음.
+###############################################################################
+
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: product-service
+  namespace: monitoring   # ServiceMonitor 자체는 monitoring namespace
+  labels:
+    release: kube-prometheus-stack   # Prometheus가 이 label로도 필터 가능
+
+spec:
+  # ─── 어떤 Service의 endpoint를 scrape ───────────────────────
+  selector:
+    matchLabels:
+      app: product-service     # default namespace의 product-service Service
+
+  # ─── 어느 namespace의 Service인지 ────────────────────────────
+  namespaceSelector:
+    matchNames:
+      - default
+
+  # ─── Endpoint 설정 ───────────────────────────────────────────
+  endpoints:
+    - port: http              # Service의 named port (deployment.yaml의 ports.name)
+      path: /actuator/prometheus
+      interval: 15s
+      scrapeTimeout: 10s
+
+      # 메트릭에 추가 label 부여 (Grafana 대시보드 그루핑용)
+      relabelings:
+        - sourceLabels: [__meta_kubernetes_pod_name]
+          targetLabel: pod
+        - sourceLabels: [__meta_kubernetes_service_name]
+          targetLabel: service
+        - sourceLabels: [__meta_kubernetes_namespace]
+          targetLabel: namespace
