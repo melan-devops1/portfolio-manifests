@@ -10,14 +10,13 @@ resources:
 images:
 - name: portfolio/order-service
   newName: 601766312629.dkr.ecr.ap-northeast-2.amazonaws.com/portfolio/order-service
-  newTag: 2e1c930
+  newTag: cbe4cc7
 
-labels:
   # labels는 metadata에만 추가
   # Deployment의 spec.selector에는 추가 안 함
   # Pod template의 metadata에도 추가 안 함(selector 변경은 breaking change -> Kustomize는 안전 측면에서 default로 selector 안 건드림)
-  - includeSelectors: false
-    pairs:
-      app.kubernetes.io/name: order-service
-      app.kubernetes.io/part-of: portfolio
-      app.kubernetes.io/managed-by: kustomize
+labels:
+- pairs:
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/name: order-service
+    app.kubernetes.io/part-of: portfolio
