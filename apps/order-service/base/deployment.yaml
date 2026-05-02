@@ -47,7 +47,7 @@ spec:
 
           env:
             - name: SPRING_PROFILES_ACTIVE
-              value: "local"
+              value: "prod"
             - name: SERVER_PORT
               value: "8082"
             # 다운스트림 호출 대상 — K8s 내부 DNS
@@ -55,6 +55,12 @@ spec:
               value: "http://product-service:8081"
             - name: PAYMENT_SERVICE_URL
               value: "http://payment-service:8083"
+
+          envFrom:
+            - configMapRef:
+                name: portfolio-db-config
+            - secretRef:
+                name: portfolio-db-credentials
 
           resources:
             requests:

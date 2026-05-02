@@ -50,13 +50,20 @@ spec:
               containerPort: 8081
               protocol: TCP
 
-          # 환경 변수 — Phase 3는 local 프로파일 (H2 in-memory)
-          # Phase 4에서 k8s 프로파일 + RDS로 전환 예정
+          # 환경 변수 — Phase 4 RDS PostgreSQL 도입 (prod 프로파일)
+          # ConfigMap/Secret은 Terraform output → kubectl로 외부 주입
+          # (chicken-and-egg 회피, 함정 #51 정합)
           env:
             - name: SPRING_PROFILES_ACTIVE
-              value: "local"
+              value: "prod"
             - name: SERVER_PORT
               value: "8081"
+
+          envFrom:
+            - configMapRef:
+                name: portfolio-db-config
+            - secretRef:
+                name: portfolio-db-credentials
 
           resources:
             requests:

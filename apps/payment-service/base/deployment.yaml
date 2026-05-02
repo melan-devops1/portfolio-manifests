@@ -45,7 +45,7 @@ spec:
 
           env:
             - name: SPRING_PROFILES_ACTIVE
-              value: "local"
+              value: "prod"
             - name: SERVER_PORT
               value: "8083"
             # Chaos 시뮬레이션 — Phase 3는 OFF, Phase 4 진입 시 ON 전환
@@ -57,6 +57,12 @@ spec:
               value: "100"
             - name: CHAOS_MAX_DELAY
               value: "2000"
+              
+          envFrom:
+            - configMapRef:
+                name: portfolio-db-config
+            - secretRef:
+                name: portfolio-db-credentials          
 
           resources:
             requests:
