@@ -77,6 +77,8 @@ prometheus:
 # ─── 3. Alertmanager ─────────────────────────────────────────
 alertmanager:
   alertmanagerSpec:
+    alertmanagerConfigMatcherStrategy:
+      type: None
     storage:
       volumeClaimTemplate:
         spec:
