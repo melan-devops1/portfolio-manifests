@@ -63,7 +63,7 @@ spec:
             - name: OTEL_SERVICE_NAME
               value: "product-service"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
-              value: "http://jaeger-collector.tracing.svc.cluster.local:4317"
+              value: "http://jaeger.tracing.svc.cluster.local:4317"
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
               value: "grpc"
             - name: OTEL_RESOURCE_ATTRIBUTES
