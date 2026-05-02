@@ -1,0 +1,14 @@
+###############################################################################
+# logging namespace
+#
+# Fluent Bit이 노드 stdout 로그를 수집하고 Elasticsearch로 전송.
+# Kibana UI는 ALB Ingress로 외부 접근.
+###############################################################################
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: logging
+  labels:
+    name: logging
+    # ALB readinessGate (함정 #49 정합) — Kibana Pod 준비 후에만 트래픽
+    elbv2.k8s.aws/pod-readiness-gate-inject: "enabled"

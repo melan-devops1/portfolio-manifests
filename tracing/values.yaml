@@ -1,0 +1,62 @@
+###############################################################################
+# Jaeger Helm values
+#
+# 결정 (시연용):
+# - all-in-one 모드: 단일 Pod에 collector + query + agent 통합
+# - memory storage: Pod 재시작 시 trace 휘발 (10000 trace cap)
+# - OTLP receiver: gRPC 4317, HTTP 4318 — portfolio-app OTel agent가 직접 전송
+# - 외부 컴포넌트 (cassandra/elasticsearch/kafka) 비활성화
+###############################################################################
+
+# 외부 데이터 저장소 비활성화 (in-memory만)
+provisionDataStore:
+  cassandra: false
+  elasticsearch: false
+  kafka: false
+
+# Storage: in-memory (시연용)
+storage:
+  type: memory
+
+# all-in-one 모드 — 단일 Pod
+allInOne:
+  enabled: true
+  
+  image:
+    # jaegertracing/all-in-one:1.x (legacy) 또는
+    # jaegertracing/jaeger:2.x (new v2 binary)
+    # chart 4.7.0의 default app version은 2.17.0 — 자동 매칭
+    pullPolicy: IfNotPresent
+
+  # OTLP receiver 활성화 + memory storage 명시
+  extraEnv:
+    - name: COLLECTOR_OTLP_ENABLED
+      value: "true"
+    - name: SPAN_STORAGE_TYPE
+      value: "memory"
+    - name: MEMORY_MAX_TRACES
+      value: "10000"
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# 분리 컴포넌트 비활성화 (all-in-one에 통합)
+agent:
+  enabled: false
+collector:
+  enabled: false
+query:
+  enabled: false
+
+# Hotrod (Jaeger 데모 앱) 비활성화
+hotrod:
+  enabled: false
+
+# Spark dependencies job 비활성화
+spark:
+  enabled: false

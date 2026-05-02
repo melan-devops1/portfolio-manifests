@@ -1,0 +1,70 @@
+###############################################################################
+# ArgoCD Application — Jaeger (all-in-one + memory storage)
+#
+# 결정:
+# - all-in-one 모드: collector + query + agent 단일 Pod (시연 단순화)
+# - memory storage: Pod 재시작 시 trace 휘발 (10000 trace 제한)
+# - OTLP receiver 활성화 (4317 gRPC, 4318 HTTP) — portfolio-app의 OTel agent가 직접 전송
+# - Sync 정책: kube-prometheus-stack 패턴 정합
+#
+# 운영 환경 진화 경로:
+# - production strategy: collector 분리 + replicas 3+
+# - storage: Elasticsearch 또는 Cassandra
+# - Sampling: parentbased_traceidratio 0.1 (10%)
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jaeger
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+
+spec:
+  project: default
+
+  # ─── Source: Helm chart 직접 ──────────────────────────────────
+  sources:
+    - repoURL: https://jaegertracing.github.io/helm-charts
+      chart: jaeger
+      targetRevision: 4.7.0   # 2026-04 stable, app version 2.17.0
+      helm:
+        valueFiles:
+          - $values/tracing/values.yaml
+
+    - repoURL: https://github.com/melan-devops1/portfolio-manifests.git
+      targetRevision: main
+      ref: values
+
+  # ─── Destination: tracing namespace ───────────────────────────
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: tracing
+
+  # ─── Sync 정책 ────────────────────────────────────────────────
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # ─── ignoreDifferences ────────────────────────────────────────
+  ignoreDifferences:
+    - group: apps
+      kind: Deployment
+      jsonPointers:
+        - /spec/replicas

@@ -1,0 +1,80 @@
+###############################################################################
+# Kibana — Elasticsearch 시각화 UI
+#
+# 결정:
+# - Deployment + Service (시연용 단순)
+# - elasticsearch.logging.svc.cluster.local 자동 연결
+# - xpack.security.enabled=false (Elasticsearch와 정합)
+###############################################################################
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kibana
+  namespace: logging
+  labels:
+    app: kibana
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: kibana
+  template:
+    metadata:
+      labels:
+        app: kibana
+    spec:
+      containers:
+        - name: kibana
+          image: docker.elastic.co/kibana/kibana:8.15.0
+          env:
+            - name: ELASTICSEARCH_HOSTS
+              value: "http://elasticsearch.logging.svc.cluster.local:9200"
+            - name: SERVER_NAME
+              value: "kibana.portfolio.local"
+            - name: SERVER_PUBLICBASEURL
+              # ALB로 외부 접근하지만 시연 시 ALB URL 모르니 빈값 OK
+              # 운영은 https://kibana.portfolio.com 같은 도메인
+              value: ""
+          ports:
+            - name: http
+              containerPort: 5601
+          resources:
+            requests:
+              cpu: 200m
+              memory: 512Mi
+            limits:
+              cpu: 1000m
+              memory: 1Gi
+          readinessProbe:
+            httpGet:
+              path: /api/status
+              port: 5601
+            initialDelaySeconds: 60
+            periodSeconds: 10
+            timeoutSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/status
+              port: 5601
+            initialDelaySeconds: 120
+            periodSeconds: 30
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kibana
+  namespace: logging
+  labels:
+    app: kibana
+  # ALB가 IP target type으로 라우팅 (함정 #49 정합)
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: external
+spec:
+  type: ClusterIP
+  selector:
+    app: kibana
+  ports:
+    - name: http
+      port: 5601
+      targetPort: 5601

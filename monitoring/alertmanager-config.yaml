@@ -1,0 +1,83 @@
+###############################################################################
+# AlertmanagerConfig — Slack 알림 라우팅
+#
+# Slack webhook URL은 Secret으로 외부 주입 (chicken-and-egg 회피, 함정 #51 정합).
+# 매 destroy/apply 사이클마다 kubectl로 Secret 생성 필요.
+#
+# 라우팅 설계:
+#   - severity=critical → Slack #ops-alert (즉시)
+#   - severity=warning → Slack #ops-alert (5분 그룹핑)
+#
+# 시연 단순화: 한 채널로 통합. 운영 환경은 채널/이메일 분리 권장.
+###############################################################################
+
+apiVersion: monitoring.coreos.com/v1alpha1
+kind: AlertmanagerConfig
+metadata:
+  name: portfolio-alertmanager-config
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack    # ⭐ Operator selector
+spec:
+  route:
+    groupBy: ['alertname', 'application']
+    groupWait: 10s
+    groupInterval: 5m
+    repeatInterval: 1h    # 시연용 짧게 (운영은 12h+)
+    receiver: 'slack-default'
+    routes:
+      - matchers:
+          - name: severity
+            value: critical
+        receiver: 'slack-critical'
+        groupWait: 5s     # critical은 빠르게
+      - matchers:
+          - name: severity
+            value: warning
+        receiver: 'slack-warning'
+  
+  receivers:
+    - name: 'slack-default'
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-slack-webhook
+            key: url
+          channel: '#ops-alert'
+          sendResolved: true
+          title: '{{ .GroupLabels.alertname }}'
+          text: |
+            {{ range .Alerts }}
+            *Description:* {{ .Annotations.description }}
+            *Severity:* {{ .Labels.severity }}
+            *Application:* {{ .Labels.application }}
+            {{ end }}
+    
+    - name: 'slack-critical'
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-slack-webhook
+            key: url
+          channel: '#ops-alert'
+          sendResolved: true
+          title: '🚨 CRITICAL: {{ .GroupLabels.alertname }}'
+          text: |
+            {{ range .Alerts }}
+            *Summary:* {{ .Annotations.summary }}
+            *Description:* {{ .Annotations.description }}
+            *Application:* {{ .Labels.application }}
+            *Started:* {{ .StartsAt }}
+            {{ end }}
+    
+    - name: 'slack-warning'
+      slackConfigs:
+        - apiURL:
+            name: alertmanager-slack-webhook
+            key: url
+          channel: '#ops-alert'
+          sendResolved: true
+          title: '⚠️ WARNING: {{ .GroupLabels.alertname }}'
+          text: |
+            {{ range .Alerts }}
+            *Summary:* {{ .Annotations.summary }}
+            *Application:* {{ .Labels.application }}
+            {{ end }}

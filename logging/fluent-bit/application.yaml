@@ -1,0 +1,64 @@
+###############################################################################
+# ArgoCD Application — Fluent Bit
+#
+# 결정 사항:
+# - Source: Helm chart 직접 (fluent 공식 repo)
+# - values.yaml: Git 레포의 logging/fluent-bit/values.yaml
+# - Sync 정책: Auto + Self-heal (kube-prometheus-stack 패턴 정합)
+# - DaemonSet 기반 — 모든 노드의 stdout 로그 수집 → Elasticsearch 전송
+###############################################################################
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fluent-bit
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+
+spec:
+  project: default
+
+  # ─── Source: Helm chart 직접 ──────────────────────────────────
+  sources:
+    # Helm chart 본체
+    - repoURL: https://fluent.github.io/helm-charts
+      chart: fluent-bit
+      targetRevision: 0.57.3 
+      helm:
+        valueFiles:
+          - $values/logging/fluent-bit/values.yaml
+
+    # values.yaml이 있는 Git 레포
+    - repoURL: https://github.com/melan-devops1/portfolio-manifests.git
+      targetRevision: main
+      ref: values
+
+  # ─── Destination: logging namespace ───────────────────────────
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: logging
+
+  # ─── Sync 정책 ────────────────────────────────────────────────
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - ApplyOutOfSyncOnly=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  # ─── ignoreDifferences ────────────────────────────────────────
+  # DaemonSet은 HPA 무관, 자동 갱신 필드 거의 없음
+  ignoreDifferences: []

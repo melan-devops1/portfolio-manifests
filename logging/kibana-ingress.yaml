@@ -1,0 +1,48 @@
+###############################################################################
+# Kibana UI Ingress — 별도 ALB
+#
+# 결정 (grafana-ingress 패턴 정합):
+# - 별도 ALB (group.name=kibana)
+# - HTTP only (시연 단계, Phase 5+에 ACM + HTTPS)
+# - Path / 단일
+# - Health check: Kibana는 /api/status 엔드포인트 제공
+###############################################################################
+
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: kibana-ingress
+  namespace: logging
+  annotations:
+    # 별도 ALB
+    alb.ingress.kubernetes.io/group.name: kibana
+
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+    alb.ingress.kubernetes.io/backend-protocol: HTTP
+
+    # Health check — Kibana는 /api/status (200 OK)
+    alb.ingress.kubernetes.io/healthcheck-protocol: HTTP
+    alb.ingress.kubernetes.io/healthcheck-path: /api/status
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: '15'
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: '5'
+    alb.ingress.kubernetes.io/healthy-threshold-count: '2'
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: '3'
+
+    # 태그
+    alb.ingress.kubernetes.io/tags: Environment=dev,Project=portfolio,Component=kibana
+
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: kibana
+                port:
+                  number: 5601

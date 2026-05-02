@@ -1,0 +1,80 @@
+###############################################################################
+# PrometheusRule — Portfolio app 알림 규칙
+#
+# kube-prometheus-stack의 Prometheus Operator가 release=kube-prometheus-stack 
+# label이 박힌 PrometheusRule CRD를 자동으로 Prometheus config로 컴파일.
+#
+# 알림 임계치 설계 — payment-service의 Chaos 시뮬레이션과 정확히 매핑:
+#   - HighErrorRate: 5xx 5% 초과 → ChaosSimulator의 errorRatePercent=5와 매칭
+#                   (단 Chaos는 422로 매핑돼서 5xx 안 잡힘. 진짜 인프라 사고만 트리거)
+#   - HighLatencyP99: P99 > 2s → ChaosSimulator의 maxDelayMs=2000과 매칭
+#   - PodCrashLoopBackOff: kube-state-metrics 메트릭으로 감지
+###############################################################################
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: portfolio-app-rules
+  namespace: monitoring
+  labels:
+    release: kube-prometheus-stack    # ⭐ Operator selector — 누락 시 무시됨
+spec:
+  groups:
+    - name: portfolio-app.errors
+      interval: 30s
+      rules:
+        # 5분간 5xx 에러율 5% 초과 (진짜 인프라 사고)
+        - alert: HighErrorRate
+          expr: |
+            (
+              sum(rate(http_server_requests_seconds_count{application=~"product-service|order-service|payment-service",status=~"5.."}[5m])) by (application)
+              /
+              sum(rate(http_server_requests_seconds_count{application=~"product-service|order-service|payment-service"}[5m])) by (application)
+            ) > 0.05
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "High 5xx error rate on {{ $labels.application }}"
+            description: "5xx error rate {{ $value | humanizePercentage }} over 5 minutes (threshold 5%)"
+
+    - name: portfolio-app.latency
+      interval: 30s
+      rules:
+        # P99 응답시간 2초 초과
+        - alert: HighLatencyP99
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(http_server_requests_seconds_bucket{application=~"product-service|order-service|payment-service"}[5m])) by (le, application)
+            ) > 2
+          for: 2m
+          labels:
+            severity: warning
+          annotations:
+            summary: "High P99 latency on {{ $labels.application }}"
+            description: "P99 latency {{ $value }}s over 5 minutes (threshold 2s)"
+
+    - name: portfolio-app.availability
+      interval: 30s
+      rules:
+        # Pod CrashLoopBackOff
+        - alert: PodCrashLoopBackOff
+          expr: |
+            kube_pod_container_status_waiting_reason{reason="CrashLoopBackOff",namespace="default"} > 0
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: "Pod {{ $labels.pod }} in CrashLoopBackOff"
+            description: "Container {{ $labels.container }} restarting in pod {{ $labels.pod }}"
+        
+        # Pod NotReady (5분 이상)
+        - alert: PodNotReady
+          expr: |
+            kube_pod_status_ready{condition="false",namespace="default"} == 1
+          for: 5m
+          labels:
+            severity: warning
+          annotations:
+            summary: "Pod {{ $labels.pod }} not ready"
+            description: "Pod {{ $labels.pod }} has been not ready for 5+ minutes"

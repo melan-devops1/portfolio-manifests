@@ -58,6 +58,23 @@ spec:
               value: "prod"
             - name: SERVER_PORT
               value: "8081"
+            # ⭐ OpenTelemetry Java Agent 활성화 (Phase 4 Epic 9)
+            - name: JAVA_TOOL_OPTIONS
+              value: "-javaagent:/opt/otel/opentelemetry-javaagent.jar"
+            - name: OTEL_SERVICE_NAME
+              value: "product-service"
+            - name: OTEL_EXPORTER_OTLP_ENDPOINT
+              value: "http://jaeger-collector.tracing.svc.cluster.local:4317"
+            - name: OTEL_EXPORTER_OTLP_PROTOCOL
+              value: "grpc"
+            - name: OTEL_RESOURCE_ATTRIBUTES
+              value: "deployment.environment=dev,service.namespace=portfolio"
+            - name: OTEL_TRACES_SAMPLER
+              value: "always_on"   # 시연용 100%, 운영은 parentbased_traceidratio + 0.1
+            - name: OTEL_METRICS_EXPORTER
+              value: "none"   # Prometheus가 이미 처리 (kube-prometheus-stack)
+            - name: OTEL_LOGS_EXPORTER
+              value: "none"   # Fluent Bit이 이미 처리 (Epic 8)
 
           envFrom:
             - configMapRef:
