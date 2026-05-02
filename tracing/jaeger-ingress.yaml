@@ -52,6 +52,6 @@ spec:
                 # all-in-one 모드: <release-name>-query 형식
                 # ArgoCD release name = Application 이름 = "jaeger"
                 # 실제 이름 검증: kubectl get svc -n tracing
-                name: jaeger-query
+                name: jaeger
                 port:
                   number: 16686
