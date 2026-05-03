@@ -61,7 +61,7 @@ spec:
             - name: JAVA_TOOL_OPTIONS
               value: "-javaagent:/opt/otel/opentelemetry-javaagent.jar"
             - name: OTEL_SERVICE_NAME
-              value: "product-service"
+              value: "payment-service"
             - name: OTEL_EXPORTER_OTLP_ENDPOINT
               value: "http://jaeger.tracing.svc.cluster.local:4317"
             - name: OTEL_EXPORTER_OTLP_PROTOCOL
