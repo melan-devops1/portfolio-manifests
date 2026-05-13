@@ -10,7 +10,7 @@ resources:
 images:
 - name: portfolio/payment-service
   newName: 601766312629.dkr.ecr.ap-northeast-2.amazonaws.com/portfolio/payment-service
-  newTag: 8cf3355
+  newTag: 2bf3d4a
 
 labels:
 - pairs:
