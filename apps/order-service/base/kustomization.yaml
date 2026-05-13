@@ -10,7 +10,7 @@ resources:
 images:
 - name: portfolio/order-service
   newName: 601766312629.dkr.ecr.ap-northeast-2.amazonaws.com/portfolio/order-service
-  newTag: 8cf3355
+  newTag: 2bf3d4a
 
   # labels는 metadata에만 추가
   # Deployment의 spec.selector에는 추가 안 함
